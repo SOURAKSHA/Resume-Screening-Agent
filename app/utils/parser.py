@@ -66,7 +66,7 @@ def extract_email(text):
 def infer_name_from_filename(filename):
     import os
     base = os.path.splitext(os.path.basename(filename))[0]
-    base = base.replace("_", " ").replace("-", " ").trim()
+    base = base.replace("_", " ").replace("-", " ").strip()
     return base.title() if base else "Unknown"
 
 def extract_years_experience(text):
