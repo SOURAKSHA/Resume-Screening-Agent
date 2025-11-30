@@ -1,14 +1,12 @@
+
+
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
 from openai import OpenAI
 
-# Correct client initialization for new OpenAI SDK
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    base_url="https://api.openai.com/v1"
-)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
@@ -21,7 +19,7 @@ def generate_scorecard(job_description: str, resume_text: str, candidate_name: s
     If API fails → ALWAYS return: 'Your resume ranking is done.'
     """
 
-    # Avoid empty resume text crash
+  
     if not resume_text or resume_text.strip() == "":
         return "Your resume ranking is done."
 
@@ -52,7 +50,8 @@ Resume:
             max_tokens=350,
         )
 
-        return response.choices[0].message.content
+        return response.choices[0].message["content"]
 
-    except Exception:
+    except:
+      
         return "Your resume ranking is done."
