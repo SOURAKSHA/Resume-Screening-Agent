@@ -1,12 +1,10 @@
 import os
 import numpy as np
 
-# Read flags
 USE_LOCAL_EMBEDDINGS = os.getenv("USE_LOCAL_EMBEDDINGS", "0") == "1"
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
 
-# Rebuild the full OpenAI key from 2 parts
 def get_full_key():
     p1 = os.getenv("OPENAI_API_KEY_PART1", "")
     p2 = os.getenv("OPENAI_API_KEY_PART2", "")
@@ -18,7 +16,6 @@ def get_openai_client():
     return OpenAI(api_key=get_full_key())
 
 
-# No local model (disabled)
 _LOCAL_MODEL = None
 
 
@@ -30,10 +27,9 @@ def embed_text(text: str):
     client = get_openai_client()
 
     try:
-        # MUST BE A LIST — otherwise OpenAI may return empty embedding
         resp = client.embeddings.create(
             model=EMBEDDING_MODEL,
-            input=[text]
+            input=text   # FIXED: MUST NOT BE A LIST
         )
         return resp.data[0].embedding
 
