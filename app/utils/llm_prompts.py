@@ -1,12 +1,11 @@
-
-
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Correct usage: DO NOT pass api_key here
+client = OpenAI()  
 
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
@@ -19,7 +18,7 @@ def generate_scorecard(job_description: str, resume_text: str, candidate_name: s
     If API fails → ALWAYS return: 'Your resume ranking is done.'
     """
 
-  
+    # Safety: blank text fallback
     if not resume_text or resume_text.strip() == "":
         return "Your resume ranking is done."
 
@@ -52,6 +51,5 @@ Resume:
 
         return response.choices[0].message["content"]
 
-    except:
-      
+    except Exception:
         return "Your resume ranking is done."
