@@ -1,15 +1,23 @@
-from openai import OpenAI
 import math
-
-client = OpenAI()
+import os
+from openai import OpenAI
 
 RESUME_STORE = []
 
 
+def get_client():
+    """
+    Create OpenAI client only when needed,
+    after environment variables are loaded.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY missing in environment!")
+    return OpenAI(api_key=api_key)
+
+
 def embed_text(text: str):
-    """
-    Generate OpenAI embedding.
-    """
+    client = get_client()
     response = client.embeddings.create(
         model="text-embedding-3-small",
         input=text
@@ -18,10 +26,7 @@ def embed_text(text: str):
 
 
 def cosine_similarity(v1, v2):
-    """
-    Pure Python cosine similarity (no numpy needed).
-    """
-    dot = sum(a * b for a, b in zip(v1, v2))
+    dot = sum(a * b for a in zip(v1, v2))
     mag1 = math.sqrt(sum(a * a for a in v1))
     mag2 = math.sqrt(sum(b * b for b in v2))
     if mag1 == 0 or mag2 == 0:
@@ -30,11 +35,7 @@ def cosine_similarity(v1, v2):
 
 
 def index_resume(text, filename, metadata=None):
-    """
-    Save resume text + embedding.
-    """
     embedding = embed_text(text)
-
     RESUME_STORE.append({
         "filename": filename,
         "text": text,
@@ -44,9 +45,6 @@ def index_resume(text, filename, metadata=None):
 
 
 def rank_resumes(job_description):
-    """
-    Rank all indexed resumes by similarity to JD.
-    """
     if not RESUME_STORE:
         return []
 
@@ -62,6 +60,5 @@ def rank_resumes(job_description):
             "score": score
         })
 
-    # highest score first
     ranked.sort(key=lambda x: x["score"], reverse=True)
     return ranked
