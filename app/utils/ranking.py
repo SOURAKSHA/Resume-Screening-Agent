@@ -1,11 +1,12 @@
 import os
 import numpy as np
 
-# Read flags from env
+# Read flags
 USE_LOCAL_EMBEDDINGS = os.getenv("USE_LOCAL_EMBEDDINGS", "0") == "1"
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
-# Rebuild API key from 2 parts
+
+# Rebuild the full OpenAI key from 2 parts
 def get_full_key():
     p1 = os.getenv("OPENAI_API_KEY_PART1", "")
     p2 = os.getenv("OPENAI_API_KEY_PART2", "")
@@ -14,19 +15,14 @@ def get_full_key():
 
 def get_openai_client():
     from openai import OpenAI
-    FULL_KEY = get_full_key()
-    return OpenAI(api_key=FULL_KEY)
+    return OpenAI(api_key=get_full_key())
 
 
-# Local model disabled (you are NOT using it)
+# No local model (disabled)
 _LOCAL_MODEL = None
 
 
 def embed_text(text: str):
-    """
-    Return embedding using OpenAI ONLY.
-    Local embeddings disabled on Streamlit.
-    """
     text = (text or "").strip()
     if text == "":
         return []
@@ -34,9 +30,10 @@ def embed_text(text: str):
     client = get_openai_client()
 
     try:
+        # MUST BE A LIST — otherwise OpenAI may return empty embedding
         resp = client.embeddings.create(
             model=EMBEDDING_MODEL,
-            input=text
+            input=[text]
         )
         return resp.data[0].embedding
 
@@ -48,11 +45,14 @@ def embed_text(text: str):
 def cosine_similarity(a, b):
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
+
     if a.size == 0 or b.size == 0:
         return 0.0
-    denom = (np.linalg.norm(a) * np.linalg.norm(b))
+
+    denom = np.linalg.norm(a) * np.linalg.norm(b)
     if denom == 0:
         return 0.0
+
     return float(np.dot(a, b) / denom)
 
 
