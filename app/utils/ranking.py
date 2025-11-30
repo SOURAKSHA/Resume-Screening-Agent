@@ -1,56 +1,64 @@
 import os
 import numpy as np
 
-
-# Read models
+# Read flags from env
+USE_LOCAL_EMBEDDINGS = os.getenv("USE_LOCAL_EMBEDDINGS", "0") == "1"
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
 
-# -------------------------
-# OpenAI Client Builder
-# -------------------------
+# Lazily create OpenAI client when needed
 def get_openai_client():
-    """
-    Creates OpenAI client using the API key from Streamlit secrets.
-    """
     from openai import OpenAI
-
-    key = os.getenv("OPENAI_API_KEY")
-    if not key:
-        raise RuntimeError("OPENAI_API_KEY missing in Streamlit Secrets.")
-
-    return OpenAI(api_key=key)
+    return OpenAI()
 
 
-# -------------------------
-# Embedding Function
-# -------------------------
+# Local model (loaded only when needed)
+_LOCAL_MODEL = None
+
+
+def _ensure_local_model():
+    """Load sentence-transformers ONLY if local embeddings enabled."""
+    global _LOCAL_MODEL
+
+    if _LOCAL_MODEL is not None:
+        return
+
+    try:
+        from sentence_transformers import SentenceTransformer
+    except Exception as e:
+        raise RuntimeError(
+            "Local embeddings requested but `sentence_transformers` is not installed. "
+            "Set USE_LOCAL_EMBEDDINGS='0' in secrets, or install sentence-transformers."
+        ) from e
+
+    _LOCAL_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
+
+
 def embed_text(text: str):
     """
-    Returns embedding for text using OpenAI.
+    Generate embedding for given text.
+    Uses local model if enabled, else OpenAI embeddings.
     """
     text = (text or "").strip()
     if text == "":
         return []
 
+    # Local embeddings
+    if USE_LOCAL_EMBEDDINGS:
+        _ensure_local_model()
+        return _LOCAL_MODEL.encode(text)
+
+    # OpenAI embeddings
     client = get_openai_client()
-
-    try:
-        resp = client.embeddings.create(
-            model=EMBEDDING_MODEL,
-            input=[text]   # MUST be a list
-        )
-        return resp.data[0].embedding
-
-    except Exception as e:
-        print("Embedding Error:", e)
-        return []
+    resp = client.embeddings.create(
+        model=EMBEDDING_MODEL,
+        input=[text]      # MUST BE LIST
+    )
+    return resp.data[0].embedding
 
 
-# -------------------------
-# Cosine Similarity
-# -------------------------
 def cosine_similarity(a, b):
+    """Compute cosine similarity safely."""
     a = np.asarray(a, dtype=float)
     b = np.asarray(b, dtype=float)
 
@@ -64,15 +72,12 @@ def cosine_similarity(a, b):
     return float(np.dot(a, b) / denom)
 
 
-# -------------------------
-# Resume Storage
-# -------------------------
 RESUME_STORE = []
 
 
 def index_resume(text, filename, metadata=None):
+    """Store resume text + embedding."""
     embedding = embed_text(text)
-
     RESUME_STORE.append({
         "filename": filename,
         "text": text,
@@ -82,12 +87,13 @@ def index_resume(text, filename, metadata=None):
 
 
 def rank_resumes(job_description):
+    """Rank resumes using cosine similarity."""
     if not RESUME_STORE:
         return []
 
     jd_embedding = embed_text(job_description)
-    results = []
 
+    results = []
     for r in RESUME_STORE:
         score = cosine_similarity(jd_embedding, r["embedding"])
         results.append({
