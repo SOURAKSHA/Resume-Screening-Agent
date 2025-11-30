@@ -4,8 +4,14 @@ load_dotenv()
 
 from openai import OpenAI
 
-# Correct usage: DO NOT pass api_key here
-client = OpenAI()  
+# Rebuild API key from parts
+def get_full_key():
+    p1 = os.getenv("OPENAI_API_KEY_PART1", "")
+    p2 = os.getenv("OPENAI_API_KEY_PART2", "")
+    return p1 + p2
+
+# Correct client usage
+client = OpenAI(api_key=get_full_key())
 
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
@@ -14,11 +20,10 @@ SCORECARD_SYSTEM = "You are an expert recruiter assistant. Be concise and factua
 
 def generate_scorecard(job_description: str, resume_text: str, candidate_name: str):
     """
-    Generates an evaluation using OpenAI Chat API.
-    If API fails → ALWAYS return: 'Your resume ranking is done.'
+    Generates evaluation using latest OpenAI API.
+    If API fails → return safe fallback.
     """
 
-    # Safety: blank text fallback
     if not resume_text or resume_text.strip() == "":
         return "Your resume ranking is done."
 
@@ -39,17 +44,18 @@ Resume:
 {resume_text}
 """
 
-        response = client.chat.completions.create(
+        response = client.responses.create(
             model=OPENAI_MODEL,
-            messages=[
+            input=[
                 {"role": "system", "content": SCORECARD_SYSTEM},
                 {"role": "user", "content": prompt}
             ],
+            max_output_tokens=350,
             temperature=0.2,
-            max_tokens=350,
         )
 
-        return response.choices[0].message["content"]
+        return response.output_text
 
-    except Exception:
+    except Exception as e:
+        print("LLM ERROR:", e)
         return "Your resume ranking is done."
